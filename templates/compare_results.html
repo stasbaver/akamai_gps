@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Compare RESULT Files - Ghost EW Performance Lab</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <a href="/" class="home-button">Home</a>
+    <div class="content-section">
+        <h1>Comparing RESULT Files: {{ dir1 }} vs {{ dir2 }}</h1>
+        {% for comp in comparisons %}
+        <div class="result-section">
+            <h2>{{ comp.filename }}</h2>
+            <table class="compare-table">
+                <thead>
+                    <tr>
+                        <th>KPI</th>
+                        <th>{{ dir1 }}</th>
+                        <th>{{ dir2 }}</th>
+                        <th>% Difference</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for avg in comp.averages %}
+                    <tr class="{% if avg.diff_exceeds_3pct %}highlight-red{% else %}highlight-green{% endif %}">
+                        <td>{{ avg.kpi }}</td>
+                        <td>{{ avg.dir1 }}</td>
+                        <td>{{ avg.dir2 }}</td>
+                        <td>{{ avg.diff_pct }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="spacer"></div>
+        {% endfor %}
+        <a href="javascript:history.back()" class="back-link">Back</a>
+    </div>
+</body>
+</html>

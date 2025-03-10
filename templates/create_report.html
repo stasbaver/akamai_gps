@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Report: {{ file1 }} vs {{ file2 }}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .content-section { max-width: 1200px; margin: 0 auto; }
+        h1 { color: #333; text-align: center; border-bottom: 2px solid #2196F3; padding-bottom: 10px; }
+        .test-dropdown { margin-bottom: 20px; border: 2px solid #ddd; border-radius: 5px; padding: 15px; background-color: #fff; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); position: relative; }
+        .test-dropdown summary { font-weight: bold; color: #000; cursor: pointer; padding: 5px; }
+        .compare-table { width: 100%; border-collapse: collapse; margin-top: 15px; background-color: #fafafa; border: 1px solid #ccc; }
+        .table-header, .kpi-row { display: flex; border-bottom: 1px solid #ccc; }
+        .table-cell { flex: 1; padding: 10px; text-align: center; border-right: 1px solid #ccc; }
+        .table-cell:last-child { border-right: none; }
+        .table-header .table-cell { background-color: #e0e0e0; font-weight: bold; color: #333; }
+        .kpi-row .table-cell:first-child { font-weight: bold; color: #555; }
+        .highlight-red { background-color: #ffcccc; }
+        .highlight-green { background-color: #ccffcc; }
+        .kpi-chart-wrapper { display: flex; flex-direction: column; width: 100%; margin-top: 15px; border: 1px solid #ddd; padding: 10px; background-color: #fff; border-radius: 5px; }
+        .charts-row { display: flex; width: 100%; height: 350px; overflow-x: auto; gap: 15px; }
+        .chart-container { flex: 1; min-width: 400px; height: 100%; display: flex; flex-direction: column; }
+        canvas { width: 100% !important; height: 100% !important; flex-grow: 1; }
+        .kpi-count { position: absolute; top: 5px; right: 150px; font-size: 14px; font-weight: bold; padding: 5px 10px; border-radius: 3px; }
+        .kpi-count.green { color: #4CAF50; background-color: #e8f5e9; }
+        .kpi-count.red { color: #ff4444; background-color: #ffebee; }
+        .home-button, .back-link, .export-button, .report-button, .add-to-report { display: inline-block; padding: 10px 20px; background-color: #2196F3; color: white; text-decoration: none; border-radius: 5px; margin: 5px 0; border: none; cursor: pointer; }
+        .home-button:hover, .back-link:hover, .export-button:hover, .report-button:hover, .add-to-report:hover { background-color: #1976D2; }
+        .outliers { margin-top: 5px; font-size: 12px; color: #666; text-align: center; padding: 5px; background-color: #f9f9f9; border-top: 1px solid #eee; white-space: nowrap; overflow-x: auto; }
+        .add-to-report { position: absolute; top: 5px; right: 10px; padding: 5px 10px; font-size: 14px; }
+        #report-table { width: 100%; border-collapse: collapse; margin: 20px 0; background-color: #fff; border: 2px solid #ddd; border-radius: 5px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); }
+        #report-table th, #report-table td { padding: 10px; text-align: left; border-bottom: 1px solid #ccc; }
+        #report-table th { background-color: #e0e0e0; font-weight: bold; color: #333; }
+        #report-table tr:last-child td { border-bottom: none; }
+        #report-table td:nth-child(2) { text-align: center; }
+    </style>
+</head>
+<body>
+    <a href="/" class="home-button">Home</a>
+    <button class="report-button" onclick="clearReport()">Clear Report</button>
+    <button class="report-button" onclick="downloadReport()">Download Report</button>
+    <button class="export-button" onclick="exportStaticPage()">Export Static Page</button>
+    <div class="content-section">
+        <h1>Create Report: {{ file1 }} vs {{ file2 }}</h1>
+        <table id="report-table">
+            <thead>
+                <tr>
+                    <th>Added Tests</th>
+                    <th>KPI Pass Count</th>
+                </tr>
+            </thead>
+            <tbody id="report-table-body">
+                <!-- Dynamically populated -->
+            </tbody>
+        </table>
+        {% for test in comparison_data %}
+        <div class="test-dropdown">
+            <span class="kpi-count" id="kpi-count-{{ test.filename1|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ test.filename2|regex_replace('[^a-zA-Z0-9_]', '_') }}">Loading...</span>
+            <button class="add-to-report" onclick="addToReport({{ loop.index0 }})">Add to Report</button>
+            <details>
+                <summary>{{ test.filename1 }} vs {{ test.filename2 }}</summary>
+                <div class="test-content">
+                    <div class="compare-table" id="table-{{ test.filename1|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ test.filename2|regex_replace('[^a-zA-Z0-9_]', '_') }}">
+                        <div class="table-header">
+                            <div class="table-cell">KPI</div>
+                            <div class="table-cell">{{ file1|replace('JSON_', '')|replace('.json', '') }} Avg</div>
+                            <div class="table-cell">{{ file2|replace('JSON_', '')|replace('.json', '') }} Avg</div>
+                            <div class="table-cell">Difference (%) \ No Outlier Diff (%)</div>
+                        </div>
+                        {% set kpi_order = ['VUs', 'Flits', 'CPU_util%', 'StrormletCPU', 'r74_CPU_flytes', 'RequestDurationK6', 'r83_TAT', 'r4_RequestEndTime', 'r5_TAT', 'r6_TransferTime', 'ApplyMetadata', 'PageLoadTimeK6', 'f6_f_line_TAT', 'r82_total_stage_time', 'r82_EW_total_time', 'MaxVUs', 'DroppedIterations', 'f5_f_line_DNS_lookup'] %}
+                        {% for kpi in kpi_order if kpi in test.kpi_data %}
+                        {% set data = test.kpi_data[kpi] %}
+                        {% set chart_id = test.filename1|regex_replace('[^a-zA-Z0-9_]', '_') ~ '-' ~ test.filename2|regex_replace('[^a-zA-Z0-9_]', '_') ~ '-' ~ kpi|regex_replace('[^a-zA-Z0-9_]', '_') %}
+                        <div class="kpi-row" data-chart-id="{{ chart_id }}">
+                            <div class="table-cell">{{ kpi }}</div>
+                            <div class="table-cell" id="avg1-{{ chart_id }}">{{ data.avg1|round(2) }}</div>
+                            <div class="table-cell" id="avg2-{{ chart_id }}">{{ data.avg2|round(2) }}</div>
+                            <div class="table-cell" id="diff-{{ chart_id }}">
+                                {% if data.diff_pct != 'N/A' %}{{ data.diff_pct|round(2) }}%{% else %}N/A{% endif %} \
+                                {% if data.no_outlier_diff_pct != 'N/A' %}{{ data.no_outlier_diff_pct|round(2) }}%{% else %}N/A{% endif %}
+                            </div>
+                        </div>
+                        <div class="kpi-chart-wrapper" id="chart-wrapper-{{ chart_id }}" style="display: none;">
+                            <div class="charts-row">
+                                <div class="chart-container">
+                                    <canvas id="chart-{{ chart_id }}-file1"></canvas>
+                                    <div class="outliers" id="outliers-{{ chart_id }}-file1"></div>
+                                </div>
+                                <div class="chart-container">
+                                    <canvas id="chart-{{ chart_id }}-file2"></canvas>
+                                    <div class="outliers" id="outliers-{{ chart_id }}-file2"></div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </details>
+        </div>
+        {% endfor %}
+        <a href="javascript:history.back()" class="back-link">Back</a>
+    </div>
+    <script>
+        const charts = {};
+        const comparisonData = {
+            {% for test in comparison_data %}
+            '{{ test.filename1|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ test.filename2|regex_replace('[^a-zA-Z0-9_]', '_') }}': {
+                {% for kpi, data in test.kpi_data.items() %}
+                '{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}': {
+                    values1: [{% for v in data.values1 %}{% if v != 'NA' %}{{ v }}{% else %}null{% endif %}{% if not loop.last %},{% endif %}{% endfor %}],
+                    values2: [{% for v in data.values2 %}{% if v != 'NA' %}{{ v }}{% else %}null{% endif %}{% if not loop.last %},{% endif %}{% endfor %}],
+                    included1: [{% for _ in data.included1 %}true{% if not loop.last %},{% endif %}{% endfor %}],
+                    included2: [{% for _ in data.included2 %}true{% if not loop.last %},{% endif %}{% endfor %}]
+                }{% if not loop.last %},{% endif %}
+                {% endfor %}
+            }{% if not loop.last %},{% endif %}
+            {% endfor %}
+        };
+
+        const kpiOrder = ['VUs', 'Flits', 'CPU_util%', 'StrormletCPU', 'r74_CPU_flytes', 'RequestDurationK6', 'r83_TAT', 'r4_RequestEndTime', 'r5_TAT', 'r6_TransferTime', 'ApplyMetadata', 'PageLoadTimeK6', 'f6_f_line_TAT', 'r82_total_stage_time', 'r82_EW_total_time', 'MaxVUs', 'DroppedIterations', 'f5_f_line_DNS_lookup'];
+        const trimmedFile1 = '{{ file1|replace('JSON_', '')|replace('.json', '') }}';
+        const trimmedFile2 = '{{ file2|replace('JSON_', '')|replace('.json', '') }}';
+        const testNames = [
+            {% for test in comparison_data %}
+            '{{ test.filename1 }} vs {{ test.filename2 }}'{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ];
+
+        function toggleChart(id) {
+            const wrapper = document.getElementById('chart-wrapper-' + id);
+            if (wrapper) {
+                const isHidden = wrapper.style.display === 'none';
+                wrapper.style.display = isHidden ? 'flex' : 'none';
+                if (isHidden) {
+                    initializeChart(id);
+                    updateStats(id);
+                }
+            }
+        }
+
+        function initializeChart(chartId) {
+            const testKey = chartId.split('-')[0] + '-' + chartId.split('-')[1];
+            const kpiKey = chartId.split('-')[2];
+            const data = comparisonData[testKey][kpiKey];
+            const maxLength = Math.max(data.values1.length, data.values2.length);
+            const labels = Array(maxLength).fill('').map((_, i) => `Iter ${i + 1}`);
+
+            const ctxFile1 = document.getElementById('chart-' + chartId + '-file1').getContext('2d');
+            const ctxFile2 = document.getElementById('chart-' + chartId + '-file2').getContext('2d');
+
+            charts[chartId + '-file1'] = new Chart(ctxFile1, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: trimmedFile1, data: data.values1, backgroundColor: data.values1.map((val, i) => val === null ? 'rgba(54, 162, 235, 0.1)' : (data.included1[i] ? 'rgba(54, 162, 235, 0.5)' : 'rgba(54, 162, 235, 0.1)')), borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1 },
+                        { label: 'Full Avg', data: Array(maxLength).fill(0), type: 'line', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 2, pointRadius: 0, fill: false },
+                        { label: 'Clean Avg', data: Array(maxLength).fill(0), type: 'line', borderColor: 'rgba(54, 162, 235, 0.7)', borderWidth: 2, borderDash: [5, 5], pointRadius: 0, fill: false }
+                    ]
+                },
+                options: {
+                    scales: { y: { beginAtZero: true }, x: { title: { display: true, text: 'Iterations' } } },
+                    plugins: { legend: { position: 'bottom' }, tooltip: { enabled: true } },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0 && elements[0].datasetIndex === 0) {
+                            const index = elements[0].index;
+                            if (data.values1[index] !== null) {
+                                data.included1[index] = !data.included1[index];
+                                updateChart(chartId, '-file1');
+                                updateStats(chartId);
+                                updateKpiCount(testKey);
+                            }
+                        }
+                    }
+                }
+            });
+
+            charts[chartId + '-file2'] = new Chart(ctxFile2, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: trimmedFile2, data: data.values2, backgroundColor: data.values2.map((val, i) => val === null ? 'rgba(255, 159, 64, 0.1)' : (data.included2[i] ? 'rgba(255, 159, 64, 0.5)' : 'rgba(255, 159, 64, 0.1)')), borderColor: 'rgba(255, 159, 64, 1)', borderWidth: 1 },
+                        { label: 'Full Avg', data: Array(maxLength).fill(0), type: 'line', borderColor: 'rgba(255, 159, 64, 1)', borderWidth: 2, pointRadius: 0, fill: false },
+                        { label: 'Clean Avg', data: Array(maxLength).fill(0), type: 'line', borderColor: 'rgba(255, 159, 64, 0.7)', borderWidth: 2, borderDash: [5, 5], pointRadius: 0, fill: false }
+                    ]
+                },
+                options: {
+                    scales: { y: { beginAtZero: true }, x: { title: { display: true, text: 'Iterations' } } },
+                    plugins: { legend: { position: 'bottom' }, tooltip: { enabled: true } },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0 && elements[0].datasetIndex === 0) {
+                            const index = elements[0].index;
+                            if (data.values2[index] !== null) {
+                                data.included2[index] = !data.included2[index];
+                                updateChart(chartId, '-file2');
+                                updateStats(chartId);
+                                updateKpiCount(testKey);
+                            }
+                        }
+                    }
+                }
+            });
+
+            updateChart(chartId, '-file1');
+            updateChart(chartId, '-file2');
+            updateOutliers(chartId);
+        }
+
+        function updateChart(chartId, suffix) {
+            const testKey = chartId.split('-')[0] + '-' + chartId.split('-')[1];
+            const kpiKey = chartId.split('-')[2];
+            const data = comparisonData[testKey][kpiKey];
+            const chart = charts[chartId + suffix];
+            const values = suffix === '-file1' ? data.values1 : data.values2;
+            const included = suffix === '-file1' ? data.included1 : data.included2;
+
+            const filteredValues = values.filter((val, i) => included[i] && val !== null);
+            const avg = filteredValues.length > 0 ? filteredValues.reduce((a, b) => a + b, 0) / filteredValues.length : 0;
+            const cleanValues = filteredValues.filter(v => v >= avg * 0.5 && v <= avg * 1.5);
+            const cleanAvg = cleanValues.length > 0 ? cleanValues.reduce((a, b) => a + b, 0) / cleanValues.length : 0;
+
+            chart.data.datasets[0].data = values;
+            chart.data.datasets[0].backgroundColor = values.map((val, i) => val === null ? `rgba(${suffix === '-file1' ? '54, 162, 235' : '255, 159, 64'}, 0.1)` : (included[i] ? `rgba(${suffix === '-file1' ? '54, 162, 235' : '255, 159, 64'}, 0.5)` : `rgba(${suffix === '-file1' ? '54, 162, 235' : '255, 159, 64'}, 0.1)`));
+            chart.data.datasets[1].data = Array(values.length).fill(avg);
+            chart.data.datasets[1].label = `Full Avg: ${avg.toFixed(2)}`;
+            chart.data.datasets[2].data = Array(values.length).fill(cleanAvg);
+            chart.data.datasets[2].label = `Clean Avg: ${cleanAvg.toFixed(2)}`;
+            const allValues = [...data.values1.filter((v, i) => data.included1[i] && v !== null), ...data.values2.filter((v, i) => data.included2[i] && v !== null)];
+            const maxY = allValues.length > 0 ? Math.max(...allValues) * 1.1 : 10;
+            chart.options.scales.y.max = maxY;
+            chart.update();
+            updateOutliers(chartId);
+        }
+
+        function updateStats(chartId) {
+            const testKey = chartId.split('-')[0] + '-' + chartId.split('-')[1];
+            const kpiKey = chartId.split('-')[2];
+            const data = comparisonData[testKey][kpiKey];
+            const filteredValues1 = data.values1.filter((val, i) => data.included1[i] && val !== null);
+            const filteredValues2 = data.values2.filter((val, i) => data.included2[i] && val !== null);
+            const avg1 = filteredValues1.length > 0 ? filteredValues1.reduce((a, b) => a + b, 0) / filteredValues1.length : 0;
+            const avg2 = filteredValues2.length > 0 ? filteredValues2.reduce((a, b) => a + b, 0) / filteredValues2.length : 0;
+            const cleanValues1 = filteredValues1.filter(v => v >= avg1 * 0.5 && v <= avg1 * 1.5);
+            const cleanValues2 = filteredValues2.filter(v => v >= avg2 * 0.5 && v <= avg2 * 1.5);
+            const cleanAvg1 = cleanValues1.length > 0 ? cleanValues1.reduce((a, b) => a + b, 0) / cleanValues1.length : 0;
+            const cleanAvg2 = cleanValues2.length > 0 ? cleanValues2.reduce((a, b) => a + b, 0) / cleanValues2.length : 0;
+            const diff_pct = avg1 + avg2 !== 0 ? Math.abs(avg1 - avg2) / ((avg1 + avg2) / 2) * 100 : 'N/A';
+            const no_outlier_diff_pct = cleanAvg1 + cleanAvg2 !== 0 ? Math.abs(cleanAvg1 - cleanAvg2) / ((cleanAvg1 + cleanAvg2) / 2) * 100 : 'N/A';
+
+            document.getElementById('avg1-' + chartId).textContent = avg1.toFixed(2);
+            document.getElementById('avg2-' + chartId).textContent = avg2.toFixed(2);
+            const diffCell = document.getElementById('diff-' + chartId);
+            diffCell.textContent = `${diff_pct !== 'N/A' ? diff_pct.toFixed(2) + '%' : 'N/A'} \\ ${no_outlier_diff_pct !== 'N/A' ? no_outlier_diff_pct.toFixed(2) + '%' : 'N/A'}`;
+            diffCell.className = 'table-cell';
+            if (no_outlier_diff_pct !== 'N/A' && no_outlier_diff_pct > 5) {
+                diffCell.classList.add('highlight-red');
+            } else if (diff_pct !== 'N/A' && diff_pct > 3) {
+                diffCell.classList.add('highlight-red');
+            } else if (diff_pct !== 'N/A') {
+                diffCell.classList.add('highlight-green');
+            }
+            updateOutliers(chartId);
+        }
+
+        function updateKpiCount(testKey) {
+            const kpis = comparisonData[testKey] || {};
+            let greenCount = 0;
+            let totalCount = 0;
+            kpiOrder.forEach(kpi => {
+                const kpiKey = kpi.replace(/[^a-zA-Z0-9_]/g, '_');
+                if (kpis[kpiKey]) {
+                    totalCount++;
+                    const data = kpis[kpiKey];
+                    const filteredValues1 = data.values1.filter((val, i) => data.included1[i] && val !== null);
+                    const filteredValues2 = data.values2.filter((val, i) => data.included2[i] && val !== null);
+                    const avg1 = filteredValues1.length > 0 ? filteredValues1.reduce((a, b) => a + b, 0) / filteredValues1.length : 0;
+                    const avg2 = filteredValues2.length > 0 ? filteredValues2.reduce((a, b) => a + b, 0) / filteredValues2.length : 0;
+                    const diff_pct = avg1 + avg2 !== 0 ? Math.abs(avg1 - avg2) / ((avg1 + avg2) / 2) * 100 : 'N/A';
+                    if (diff_pct !== 'N/A' && diff_pct <= 3) {
+                        greenCount++;
+                    }
+                }
+            });
+            const kpiCountElement = document.getElementById(`kpi-count-${testKey}`);
+            if (kpiCountElement) {
+                kpiCountElement.textContent = `${greenCount}/${totalCount} KPIs Green`;
+                kpiCountElement.className = 'kpi-count';
+                kpiCountElement.classList.add(greenCount === totalCount && totalCount > 0 ? 'green' : 'red');
+            }
+        }
+
+        function updateOutliers(chartId) {
+            const testKey = chartId.split('-')[0] + '-' + chartId.split('-')[1];
+            const kpiKey = chartId.split('-')[2];
+            const data = comparisonData[testKey][kpiKey];
+            const outliersDiv1 = document.getElementById(`outliers-${chartId}-file1`);
+            const outliersDiv2 = document.getElementById(`outliers-${chartId}-file2`);
+            const filteredValues1 = data.values1.filter((val, i) => data.included1[i] && val !== null);
+            const filteredValues2 = data.values2.filter((val, i) => data.included2[i] && val !== null);
+            const avg1 = filteredValues1.length > 0 ? filteredValues1.reduce((a, b) => a + b, 0) / filteredValues1.length : 0;
+            const avg2 = filteredValues2.length > 0 ? filteredValues2.reduce((a, b) => a + b, 0) / filteredValues2.length : 0;
+            const outliers1 = data.values1.map((val, i) => val !== null && data.included1[i] && (val < avg1 * 0.5 || val > avg1 * 1.5) ? `iter${i + 1}: ${val.toFixed(2)}` : null).filter(v => v);
+            const outliers2 = data.values2.map((val, i) => val !== null && data.included2[i] && (val < avg2 * 0.5 || val > avg2 * 1.5) ? `iter${i + 1}: ${val.toFixed(2)}` : null).filter(v => v);
+            outliersDiv1.innerHTML = outliers1.length > 0 ? outliers1.join(', ') : 'No outliers';
+            outliersDiv2.innerHTML = outliers2.length > 0 ? outliers2.join(', ') : 'No outliers';
+        }
+
+        function exportStaticPage() {
+            const staticDoc = document.cloneNode(true);
+            const staticContent = staticDoc.querySelector('.content-section');
+            const details = staticDoc.querySelectorAll('details');
+            details.forEach(detail => detail.setAttribute('open', ''));
+            const chartWrappers = staticDoc.querySelectorAll('.kpi-chart-wrapper');
+            chartWrappers.forEach(wrapper => {
+                const chartId = wrapper.id.replace('chart-wrapper-', '');
+                wrapper.style.display = 'none';
+                const canvas1 = wrapper.querySelector(`#chart-${chartId}-file1`);
+                const canvas2 = wrapper.querySelector(`#chart-${chartId}-file2`);
+                if (charts[chartId + '-file1'] && charts[chartId + '-file2']) {
+                    const img1 = staticDoc.createElement('img');
+                    img1.src = charts[chartId + '-file1'].toBase64Image();
+                    img1.style.width = '100%';
+                    img1.style.height = '100%';
+                    const img2 = staticDoc.createElement('img');
+                    img2.src = charts[chartId + '-file2'].toBase64Image();
+                    img2.style.width = '100%';
+                    img2.style.height = '100%';
+                    const container1 = canvas1.parentNode;
+                    const container2 = canvas2.parentNode;
+                    container1.replaceChild(img1, canvas1);
+                    container2.replaceChild(img2, canvas2);
+                }
+            });
+            const exportButton = staticDoc.querySelector('.export-button');
+            if (exportButton) exportButton.remove();
+            const reportButtons = staticDoc.querySelectorAll('.report-button, .add-to-report');
+            reportButtons.forEach(btn => btn.remove());
+            const scripts = staticDoc.getElementsByTagName('script');
+            while (scripts.length > 0) {
+                scripts[0].parentNode.removeChild(scripts[0]);
+            }
+            const file1Name = '{{ file1 }}'.split('/').pop().replace('JSON_', '').replace('.json', '');
+            const file2Name = '{{ file2 }}'.split('/').pop().replace('JSON_', '').replace('.json', '');
+            const exportFileName = `${file1Name}_VS_${file2Name}.html`;
+            const htmlContent = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Static Report - {{ file1 }} vs {{ file2 }}</title>
+                    <style>${document.querySelector('style').innerHTML}</style>
+                </head>
+                <body>${staticDoc.body.innerHTML}</body>
+                </html>
+            `;
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = exportFileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function clearReport() {
+            fetch('/clear_report', { method: 'POST' })
+                .then(response => {
+                    if (response.ok) {
+                        alert('Report cleared successfully.');
+                        document.getElementById('report-table-body').innerHTML = '';
+                    } else {
+                        alert('Failed to clear report.');
+                    }
+                });
+        }
+
+        function downloadReport() {
+            const file1Name = '{{ file1 }}'.split('/').pop().replace('JSON_', '').replace('.json', '');
+            const file2Name = '{{ file2 }}'.split('/').pop().replace('JSON_', '').replace('.json', '');
+            const reportFileName = `${file1Name}-${file2Name}-report.html`;
+            window.location.href = `/download_report?filename=${encodeURIComponent(reportFileName)}`;
+        }
+
+        function addToReport(testIndex) {
+            fetch('/create_report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `test_index=${testIndex}&file1={{ file1|urlencode }}&file2={{ file2|urlencode }}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Test added to report.');
+                    updateReportTable(data.test_added);
+                } else {
+                    alert('Failed to add test to report.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while adding to report.');
+            });
+        }
+
+        function updateReportTable(testIndex) {
+            const tbody = document.getElementById('report-table-body');
+            const row = document.createElement('tr');
+            const nameCell = document.createElement('td');
+            nameCell.textContent = testNames[testIndex];
+            const kpiCell = document.createElement('td');
+            
+            const testKey = `${testNames[testIndex].split(' vs ')[0].replace(/[^a-zA-Z0-9_]/g, '_')}-${testNames[testIndex].split(' vs ')[1].replace(/[^a-zA-Z0-9_]/g, '_')}`;
+            const kpis = comparisonData[testKey] || {};
+            let greenCount = 0;
+            let totalCount = 0;
+            kpiOrder.forEach(kpi => {
+                const kpiKey = kpi.replace(/[^a-zA-Z0-9_]/g, '_');
+                if (kpis[kpiKey]) {
+                    totalCount++;
+                    const data = kpis[kpiKey];
+                    const filteredValues1 = data.values1.filter((val, i) => data.included1[i] && val !== null);
+                    const filteredValues2 = data.values2.filter((val, i) => data.included2[i] && val !== null);
+                    const avg1 = filteredValues1.length > 0 ? filteredValues1.reduce((a, b) => a + b, 0) / filteredValues1.length : 0;
+                    const avg2 = filteredValues2.length > 0 ? filteredValues2.reduce((a, b) => a + b, 0) / filteredValues2.length : 0;
+                    const diff_pct = avg1 + avg2 !== 0 ? Math.abs(avg1 - avg2) / ((avg1 + avg2) / 2) * 100 : 'N/A';
+                    if (diff_pct !== 'N/A' && diff_pct <= 3) {
+                        greenCount++;
+                    }
+                }
+            });
+            kpiCell.textContent = `${greenCount}/${totalCount}`;
+            kpiCell.style.textAlign = 'center';
+            row.appendChild(nameCell);
+            row.appendChild(kpiCell);
+            tbody.appendChild(row);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.kpi-row').forEach(row => {
+                row.addEventListener('click', () => {
+                    const chartId = row.getAttribute('data-chart-id');
+                    toggleChart(chartId);
+                });
+            });
+            Object.keys(comparisonData).forEach(testKey => {
+                kpiOrder.forEach(kpi => {
+                    const kpiKey = kpi.replace(/[^a-zA-Z0-9_]/g, '_');
+                    if (comparisonData[testKey][kpiKey]) {
+                        const chartId = testKey + '-' + kpiKey;
+                        updateStats(chartId);
+                    }
+                });
+                updateKpiCount(testKey);
+            });
+        });
+    </script>
+</body>
+</html>

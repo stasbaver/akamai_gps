@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>File Browser</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <h1>Directory: /{{ current_path }}</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Last Modified</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if current_path %}
+            <tr>
+                <td>
+                    <i class="fas fa-folder"></i>
+                    <a href="/{{ parent_path }}">.. (Parent Directory)</a>
+                </td>
+                <td></td>
+            </tr>
+            {% endif %}
+            {% for file in files %}
+            <tr>
+                <td>
+                    {% if file.is_dir %}
+                    <i class="fas fa-folder"></i>
+                    {% elif file.name.lower().startswith('https') or file.name.endswith('.txt') or file.name.endswith('.log') or file.name.endswith('.res') %}
+                    <i class="fas fa-file-alt"></i>
+                    {% elif file.name.endswith('.png') %}
+                    <i class="fas fa-file-image"></i>
+                    {% endif %}
+                    <a href="/{{ file.path }}">{{ file.name }}</a>
+                    {% if file.is_dir %}(dir){% endif %}
+                </td>
+                <td>{{ file.mod_time }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

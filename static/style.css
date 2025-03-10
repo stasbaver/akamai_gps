@@ -1,0 +1,330 @@
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 16px;
+    background-color: #f0f0f0;
+    margin: 0;
+    padding: 0;
+}
+
+h1 {
+    font-size: 24px;
+    background-color: #e0e0e0;
+    padding: 10px;
+    border-bottom: 2px solid #ccc;
+    margin: 0 0 20px 0;
+}
+
+h2 {
+    font-size: 20px;
+    margin: 10px 0;
+    text-align: left;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+th, td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+th {
+    background-color: #f5f5f5;
+    font-weight: bold;
+}
+
+tr:hover {
+    background-color: #f1f1f1;
+}
+
+a {
+    color: #0066cc;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+pre {
+    font-size: 16px;
+    background-color: white;
+    padding: 15px;
+    border: 1px solid #ddd;
+    white-space: pre-wrap;
+    margin: 0;
+    overflow-y: auto;
+}
+
+.back-link {
+    display: inline-block;
+    margin-top: 20px;
+}
+
+/* Home page styles */
+.top-section {
+    height: 50vh;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.bottom-section {
+    height: 50vh;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.button-container {
+    display: flex;
+    gap: 20px;
+}
+
+.button {
+    display: inline-block;
+    padding: 15px 30px;
+    background-color: #0078d7;
+    color: white;
+    font-size: 18px;
+    border: none;
+    border-radius: 5px;
+    text-align: center;
+    transition: background-color 0.3s;
+}
+
+.button:hover {
+    background-color: #005ba1;
+    text-decoration: none;
+}
+
+.button.disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.button.disabled:hover {
+    background-color: #cccccc;
+}
+
+/* Console styles */
+.console {
+    width: 80%;
+    height: 80%;
+    background-color: #000;
+    color: #fff;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 14px;
+    padding: 15px;
+    border: 1px solid #333;
+    border-radius: 5px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Full-screen content for text files */
+.content-section {
+    padding: 20px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Home button styles */
+.home-button {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    padding: 5px 15px;
+    background-color: #0078d7;
+    color: white;
+    font-size: 14px;
+    border-radius: 3px;
+    text-align: center;
+    transition: background-color 0.3s;
+}
+
+.home-button:hover {
+    background-color: #005ba1;
+    text-decoration: none;
+}
+
+/* Status indicator styles */
+.status-indicator {
+    width: 200px;
+    height: 30px;
+    line-height: 30px;
+    text-align: center;
+    color: white;
+    font-size: 14px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Compare table styles (for /compare) */
+.compare-table {
+    width: 90%;
+    margin: 0 auto 20px auto;
+    overflow-x: auto;
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.compare-table th, .compare-table td {
+    min-width: 150px;
+}
+
+.compare-button, .detailed-button, .compare-two-button, .aggregate-button {
+    margin-top: 20px;
+}
+
+/* Result table styles */
+.result-table {
+    width: 90%;
+    margin: 0 auto 20px auto;
+    max-height: none;
+    overflow-y: auto;
+}
+
+/* Result headers */
+.result-headers {
+    margin-bottom: 10px;
+}
+
+.result-headers p {
+    margin: 5px 0;
+    font-size: 16px;
+}
+
+/* Copy table button */
+.copy-button {
+    margin-top: 10px;
+    padding: 10px 20px;
+    font-size: 16px;
+}
+
+/* Average row styles */
+.average-cell {
+    font-weight: bold;
+    background-color: #e6f3ff;
+}
+
+/* Button group for browser screen */
+.button-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+/* Spacer between result sections */
+.spacer {
+    height: 40px;
+}
+
+/* Result section container */
+.result-section {
+    margin-bottom: 20px;
+}
+
+/* Highlight for difference */
+.highlight-red {
+    background-color: #ffe6e6;  /* Light red for >3% difference */
+}
+
+.highlight-green {
+    background-color: #e6ffe6;  /* Light green for <3% difference */
+}
+
+/* Dropdown styles for tests */
+.test-dropdown {
+    margin-bottom: 15px;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+}
+
+.test-dropdown summary {
+    cursor: pointer;
+    font-weight: bold;
+    padding: 5px;
+}
+
+.test-dropdown summary:hover {
+    background-color: #f1f1f1;
+}
+
+/* Chart container for uniform sizing and spacing */
+.charts-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;  /* Space between charts */
+    justify-content: space-between;  /* Distribute charts evenly */
+    padding: 20px 0;
+}
+
+.chart-wrapper {
+    width: calc(50% - 10px);  /* Two per row with gap adjustment (50% - half the gap) */
+    height: 350px;  /* Increased height */
+}
+
+/* Ensure canvas fits within wrapper */
+.chart-wrapper canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Test content inside dropdown */
+.test-content {
+    padding: 10px;
+}
+
+/* Custom table-like styles for KPI comparison */
+.table-header, .kpi-row {
+    display: flex;
+    border-bottom: 1px solid #ddd;
+}
+
+.table-header {
+    background-color: #f5f5f5;
+    font-weight: bold;
+}
+
+.table-cell {
+    flex: 1;
+    padding: 12px;
+    min-width: 150px;
+    text-align: left;
+}
+
+.kpi-row {
+    cursor: pointer;
+}
+
+.kpi-row:hover {
+    background-color: #f1f1f1;
+}
+
+/* Chart wrapper for full-width KPI charts */
+.kpi-chart-wrapper {
+    width: 100%;
+    height: 250px;  /* Reduced height for less stretching */
+    margin-top: 10px;
+    padding: 0 12px;  /* Align with table padding */
+}
+
+/* Ensure canvas fits within KPI chart wrapper */
+.kpi-chart-wrapper canvas {
+    width: 100% !important;
+    height: 100% !important;
+}

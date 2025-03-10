@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Compare JSON Files - Ghost EW Performance Lab</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+</head>
+<body>
+    <a href="/" class="home-button">Home</a>
+    <div class="content-section">
+        <h1>Comparing {{ file1 }} vs {{ file2 }}</h1>
+        {% for test in comparison_data %}
+        <div class="test-dropdown">
+            <details open>
+                <summary>{{ test.filename1 }} vs {{ test.filename2 }}</summary>
+                <div class="test-content">
+                    <div class="compare-table">
+                        <div class="table-header">
+                            <div class="table-cell">KPI</div>
+                            <div class="table-cell">{{ file1 }} ({{ test.filename1 }})</div>
+                            <div class="table-cell">{{ file2 }} ({{ test.filename2 }})</div>
+                            <div class="table-cell">Difference (%)</div>
+                        </div>
+                        {% for kpi, data in test.kpi_data.items() %}
+                        <div class="kpi-row" onclick="toggleChart('{{ test.filename1|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ test.filename2|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}')">
+                            <div class="table-cell">{{ kpi }}</div>
+                            <div class="table-cell">{{ data.avg1|round(2) }}</div>
+                            <div class="table-cell">{{ data.avg2|round(2) }}</div>
+                            <div class="table-cell {% if data.diff_pct != 'N/A' and data.diff_pct > 3 %}highlight-red{% elif data.diff_pct != 'N/A' %}highlight-green{% endif %}">
+                                {% if data.diff_pct != 'N/A' %}{{ data.diff_pct|round(2) }}%{% else %}N/A{% endif %}
+                            </div>
+                        </div>
+                        <div class="kpi-chart-wrapper" id="chart-wrapper-{{ test.filename1|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ test.filename2|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}" style="display: none;">
+                            <canvas id="chart-{{ test.filename1|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ test.filename2|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}"></canvas>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </details>
+        </div>
+        {% endfor %}
+        <a href="javascript:history.back()" class="back-link">Back</a>
+    </div>
+    <script>
+        Chart.register(ChartDataLabels);
+
+        function toggleChart(id) {
+            const wrapper = document.getElementById('chart-wrapper-' + id);
+            wrapper.style.display = wrapper.style.display === 'none' ? 'block' : 'none';
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const comparisonData = {
+                {% for test in comparison_data %}
+                '{{ test.filename1|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ test.filename2|regex_replace('[^a-zA-Z0-9_]', '_') }}': {
+                    {% for kpi, data in test.kpi_data.items() %}
+                    '{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}': {
+                        values1: [{% for v in data.values1 %}{% if v != 'NA' %}{{ v }}{% else %}null{% endif %}{% if not loop.last %},{% endif %}{% endfor %}],
+                        values2: [{% for v in data.values2 %}{% if v != 'NA' %}{{ v }}{% else %}null{% endif %}{% if not loop.last %},{% endif %}{% endfor %}],
+                        avg1: {{ data.avg1 }},
+                        avg2: {{ data.avg2 }}
+                    }{% if not loop.last %},{% endif %}
+                    {% endfor %}
+                }{% if not loop.last %},{% endif %}
+                {% endfor %}
+            };
+
+            {% for test in comparison_data %}
+            {% for kpi, data in test.kpi_data.items() %}
+            const ctx_{{ test.filename1|regex_replace('[^a-zA-Z0-9_]', '_') }}_{{ test.filename2|regex_replace('[^a-zA-Z0-9_]', '_') }}_{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }} = document.getElementById('chart-{{ test.filename1|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ test.filename2|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}').getContext('2d');
+            new Chart(ctx_{{ test.filename1|regex_replace('[^a-zA-Z0-9_]', '_') }}_{{ test.filename2|regex_replace('[^a-zA-Z0-9_]', '_') }}_{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}, {
+                type: 'bar',
+                data: {
+                    labels: Array(Math.max(
+                        comparisonData['{{ test.filename1|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ test.filename2|regex_replace('[^a-zA-Z0-9_]', '_') }}']['{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}'].values1.length,
+                        comparisonData['{{ test.filename1|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ test.filename2|regex_replace('[^a-zA-Z0-9_]', '_') }}']['{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}'].values2.length
+                    )).fill('').map((_, i) => `Iter ${i + 1}`),
+                    datasets: [
+                        {
+                            label: '{{ file1|replace("JSON_", "")|replace(".json", "") }}',
+                            data: comparisonData['{{ test.filename1|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ test.filename2|regex_replace('[^a-zA-Z0-9_]', '_') }}']['{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}'].values1,
+                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: '{{ file2|replace("JSON_", "")|replace(".json", "") }}',
+                            data: comparisonData['{{ test.filename1|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ test.filename2|regex_replace('[^a-zA-Z0-9_]', '_') }}']['{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}'].values2,
+                            backgroundColor: 'rgba(255, 159, 64, 0.5)',
+                            borderColor: 'rgba(255, 159, 64, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: '',
+                            data: Array(comparisonData['{{ test.filename1|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ test.filename2|regex_replace('[^a-zA-Z0-9_]', '_') }}']['{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}'].values1.length).fill(comparisonData['{{ test.filename1|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ test.filename2|regex_replace('[^a-zA-Z0-9_]', '_') }}']['{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}'].avg1),
+                            type: 'line',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            datalabels: {
+                                display: function(context) {
+                                    return context.dataIndex === Math.floor(context.dataset.data.length / 2);  // Middle point
+                                },
+                                align: 'top',
+                                anchor: 'center',
+                                offset: 10,  // Above the line
+                                color: 'rgba(54, 162, 235, 1)',
+                                formatter: (value) => value.toFixed(2)
+                            }
+                        },
+                        {
+                            label: '',
+                            data: Array(comparisonData['{{ test.filename1|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ test.filename2|regex_replace('[^a-zA-Z0-9_]', '_') }}']['{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}'].values2.length).fill(comparisonData['{{ test.filename1|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ test.filename2|regex_replace('[^a-zA-Z0-9_]', '_') }}']['{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}'].avg2),
+                            type: 'line',
+                            borderColor: 'rgba(255, 159, 64, 1)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            datalabels: {
+                                display: function(context) {
+                                    return context.dataIndex === Math.floor(context.dataset.data.length / 2) + 1;  // Next to middle point
+                                },
+                                align: 'top',
+                                anchor: 'center',
+                                offset: 10,  // Above the line
+                                color: 'rgba(255, 159, 64, 1)',
+                                formatter: (value) => value.toFixed(2)
+                            }
+                        }
+                    ]
+                },
+                options: {
+                    scales: {
+                        y: { beginAtZero: true },
+                        x: { display: false }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                font: {
+                                    size: 12
+                                },
+                                filter: function(item) {
+                                    return item.text !== '';  // Hide empty labels (averages)
+                                }
+                            }
+                        },
+                        datalabels: {
+                            display: function(context) {
+                                return context.dataset.type === 'line';  // Only on lines
+                            }
+                        }
+                    }
+                }
+            });
+            {% endfor %}
+            {% endfor %}
+        });
+    </script>
+</body>
+</html>

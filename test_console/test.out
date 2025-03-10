@@ -1,0 +1,19 @@
+constant_request_rate   [  28% ] 00063/00072 VUs  1m24.0s/5m0s  250.00 iters/s
+
+running (1m25.0s), 00072/00072 VUs, 21117 complete and 0 interrupted iterations
+constant_request_rate   [  28% ] 00061/00072 VUs  1m25.0s/5m0s  250.00 iters/s
+
+running (1m26.0s), 00072/00072 VUs, 21368 complete and 0 interrupted iterations
+constant_request_rate   [  29% ] 00060/00072 VUs  1m26.0s/5m0s  250.00 iters/s
+
+running (1m27.0s), 00072/00072 VUs, 21617 complete and 0 interrupted iterations
+constant_request_rate   [  29% ] 00061/00072 VUs  1m27.0s/5m0s  250.00 iters/s
+
+running (1m28.0s), 00072/00072 VUs, 21864 complete and 0 interrupted iterations
+constant_request_rate   [  29% ] 00064/00072 VUs  1m28.0s/5m0s  250.00 iters/s
+
+running (1m29.0s), 00072/00072 VUs, 22116 complete and 0 interrupted iterations
+constant_request_rate   [  30% ] 00062/00072 VUs  1m29.0s/5m0s  250.00 iters/s
+
+running (1m30.0s), 00072/00072 VUs, 22373 complete and 0 interrupted iterations
+constant_request_rate   [  30% ] 00055/00072 VUs  1m30.0s/5m0s  250.00 iters/s

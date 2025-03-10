@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ filename }} - Ghost EW Performance Lab</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <a href="/" class="home-button">Home</a>
+    <div class="content-section">
+        <h1>{{ filename }}</h1>
+        <pre>{{ content }}</pre>
+        <a href="javascript:history.back()" class="back-link">Back</a>
+    </div>
+</body>
+</html>

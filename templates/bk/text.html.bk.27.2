@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ filename }} - Ghost EW Performance Lab</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <a href="/" class="home-button">Home</a>
+    <div class="content-section">
+        <h1>{{ filename }}</h1>
+        {% if is_table %}
+        <div class="result-headers">
+            <p>{{ header1 }}</p>
+            <p>{{ header2 }}</p>
+        </div>
+        <table class="result-table" id="result-table">
+            {% if content|length > 0 and content[0]|length is defined %}
+            <!-- Multi-column table -->
+            {% for row in content %}
+            <tr>
+                {% for value in row %}
+                <td>{{ value }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+            {% else %}
+            <!-- Single-column table -->
+            {% for value in content %}
+            <tr>
+                <td>{{ value }}</td>
+            </tr>
+            {% endfor %}
+            {% endif %}
+        </table>
+        <button id="copy-table-btn" class="button copy-button">Copy Table</button>
+        <script>
+            document.getElementById('copy-table-btn').addEventListener('click', function() {
+                const table = document.getElementById('result-table');
+                console.log('Button clicked, table found:', table);  // Debug table element
+                let tableText = '';
+                const rows = table.getElementsByTagName('tr');
+                console.log('Rows found:', rows.length);  // Debug row count
+                for (let row of rows) {
+                    const cells = row.getElementsByTagName('td');
+                    console.log('Cells in row:', cells.length);  // Debug cell count
+                    const rowValues = Array.from(cells).map(cell => cell.textContent.trim());
+                    if (rowValues.length > 0) {  // Skip empty rows
+                        tableText += rowValues.join('\t') + '\n';
+                    }
+                }
+                console.log('Table text to copy:', tableText.trim());  // Debug final text
+                if (tableText) {
+                    navigator.clipboard.writeText(tableText.trim()).then(() => {
+                        console.log('Successfully copied to clipboard');
+                        alert('Table copied to clipboard!');
+                    }).catch(err => {
+                        console.error('Failed to copy table:', err);
+                        alert('Failed to copy table: ' + err);
+                    });
+                } else {
+                    console.warn('No table content to copy');
+                    alert('No table content to copy!');
+                }
+            });
+        </script>
+        {% else %}
+        <pre>{{ content }}</pre>
+        {% endif %}
+        <a href="javascript:history.back()" class="back-link">Back</a>
+    </div>
+</body>
+</html>

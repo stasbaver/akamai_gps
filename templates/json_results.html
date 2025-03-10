@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ filename }} - Ghost EW Performance Lab</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Add Chart.js Datalabels plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+</head>
+<body>
+    <a href="/" class="home-button">Home</a>
+    <div class="content-section">
+        <h1>{{ filename }}</h1>
+        {% for test in json_data %}
+        <details class="test-dropdown">
+            <summary>{{ test.filename }}</summary>
+            <div class="test-content">
+                <p>{{ test.header1 }}</p>
+                <p>{{ test.header2 }}</p>
+                {% if test.iterations|length > 0 %}
+                <div class="charts-container">
+                    {% for kpi in test.kpis %}
+                    <div class="chart-wrapper">
+                        <canvas id="chart-{{ test.filename|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}"></canvas>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </details>
+        {% endfor %}
+        <a href="javascript:history.back()" class="back-link">Back</a>
+    </div>
+    <script>
+        // Register the datalabels plugin
+        Chart.register(ChartDataLabels);
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const chartData = {
+                {% for test in json_data %}
+                {% if test.iterations|length > 0 %}
+                '{{ test.filename|regex_replace('[^a-zA-Z0-9_]', '_') }}': {
+                    {% for kpi in test.kpis %}
+                    '{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}': [
+                        {% for iter in test.iterations %}
+                        {% if kpi in iter %}{% if iter[kpi] != 'NA' %}{{ iter[kpi] }}{% else %}null{% endif %}{% else %}null{% endif %}{% if not loop.last %},{% endif %}
+                        {% endfor %}
+                    ]{% if not loop.last %},{% endif %}
+                    {% endfor %}
+                }{% if not loop.last %},{% endif %}
+                {% endif %}
+                {% endfor %}
+            };
+
+            {% for test in json_data %}
+            {% if test.iterations|length > 0 %}
+            {% for kpi in test.kpis %}
+            const values_{{ test.filename|regex_replace('[^a-zA-Z0-9_]', '_') }}_{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }} = chartData['{{ test.filename|regex_replace('[^a-zA-Z0-9_]', '_') }}']['{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}'];
+            if (values_{{ test.filename|regex_replace('[^a-zA-Z0-9_]', '_') }}_{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}.length > 0 && values_{{ test.filename|regex_replace('[^a-zA-Z0-9_]', '_') }}_{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}.some(v => v !== null)) {
+                const validValues = values_{{ test.filename|regex_replace('[^a-zA-Z0-9_]', '_') }}_{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}.filter(v => v !== null);
+                const avg = validValues.length > 0 ? validValues.reduce((a, b) => a + b, 0) / validValues.length : 0;
+                const avgArray = Array(values_{{ test.filename|regex_replace('[^a-zA-Z0-9_]', '_') }}_{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}.length).fill(avg);
+
+                const ctx_{{ test.filename|regex_replace('[^a-zA-Z0-9_]', '_') }}_{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }} = document.getElementById('chart-{{ test.filename|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}').getContext('2d');
+                new Chart(ctx_{{ test.filename|regex_replace('[^a-zA-Z0-9_]', '_') }}_{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}, {
+                    type: 'bar',
+                    data: {
+                        labels: values_{{ test.filename|regex_replace('[^a-zA-Z0-9_]', '_') }}_{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}.map((_, i) => `Iter ${i + 1}`),
+                        datasets: [{
+                            label: '{{ kpi }}',
+                            data: values_{{ test.filename|regex_replace('[^a-zA-Z0-9_]', '_') }}_{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }},
+                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1,
+                            order: 1
+                        }, {
+                            label: `Average (${avg.toFixed(2)})`,  // Display avg in legend
+                            data: avgArray,
+                            type: 'line',
+                            fill: false,
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            order: 0
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: { beginAtZero: true },
+                            x: { display: false }
+                        },
+                        plugins: {
+                            legend: {
+                                display: true
+                            },
+                            datalabels: {
+                                display: false  // Disable datalabels on bars
+                            }
+                        }
+                    }
+                });
+            } else {
+                console.warn('No valid data for {{ kpi }} in {{ test.filename }}');
+            }
+            {% endfor %}
+            {% else %}
+            console.warn('No iterations found for {{ test.filename }}');
+            {% endif %}
+            {% endfor %}
+        });
+    </script>
+</body>
+</html>

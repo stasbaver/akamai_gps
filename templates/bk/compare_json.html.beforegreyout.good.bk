@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Compare JSON Files - Ghost EW Performance Lab</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+</head>
+<body>
+    <a href="/" class="home-button">Home</a>
+    <div class="content-section">
+        <h1>Comparing {{ file1 }} vs {{ file2 }}</h1>
+        {% for test in comparison_data %}
+        <div class="test-dropdown">
+            <details open>
+                <summary>{{ test.filename1 }} vs {{ test.filename2 }}</summary>
+                <div class="test-content">
+                    <div class="compare-table">
+                        <div class="table-header">
+                            <div class="table-cell">KPI</div>
+                            <div class="table-cell">{{ file1 }} ({{ test.filename1 }})</div>
+                            <div class="table-cell">{{ file2 }} ({{ test.filename2 }})</div>
+                            <div class="table-cell">Difference (%)</div>
+                        </div>
+                        {% set kpi_order = ['VUs', 'Flits', 'CPU_util%', 'StrormletCPU', 'r74_CPU_flytes', 'RequestDurationK6', 'r83_TAT', 'r4_RequestEndTime', 'r5_TAT', 'r6_TransferTime', 'ApplyMetadata', 'PageLoadTimeK6', 'f6_f_line_TAT', 'r82_total_stage_time', 'r82_EW_total_time', 'MaxVUs', 'DroppedIterations', 'f5_f_line_DNS_lookup'] %}
+                        {% for kpi in kpi_order if kpi in test.kpi_data %}
+                        {% set data = test.kpi_data[kpi] %}
+                        {% set chart_id = test.filename1|regex_replace('[^a-zA-Z0-9_]', '_') ~ '-' ~ test.filename2|regex_replace('[^a-zA-Z0-9_]', '_') ~ '-' ~ kpi|regex_replace('[^a-zA-Z0-9_]', '_') %}
+                        <div class="kpi-row" data-chart-id="{{ chart_id }}">
+                            <div class="table-cell">{{ kpi }}</div>
+                            <div class="table-cell">{{ data.avg1|round(2) }}</div>
+                            <div class="table-cell">{{ data.avg2|round(2) }}</div>
+                            <div class="table-cell {% if data.diff_pct != 'N/A' and data.diff_pct > 3 %}highlight-red{% elif data.diff_pct != 'N/A' %}highlight-green{% endif %}">
+                                {% if data.diff_pct != 'N/A' %}{{ data.diff_pct|round(2) }}%{% else %}N/A{% endif %}
+                            </div>
+                        </div>
+                        <div class="kpi-chart-wrapper" id="chart-wrapper-{{ chart_id }}" style="display: none; width: 100%; height: 300px;">
+                            <canvas id="chart-{{ chart_id }}"></canvas>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </details>
+        </div>
+        {% endfor %}
+        <a href="javascript:history.back()" class="back-link">Back</a>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM fully loaded');
+
+            function toggleChart(id) {
+                const wrapper = document.getElementById('chart-wrapper-' + id);
+                const chart = charts[id];
+                if (wrapper) {
+                    const isHidden = wrapper.style.display === 'none';
+                    wrapper.style.display = isHidden ? 'block' : 'none';
+                    if (isHidden && chart) {
+                        console.log('Showing chart for ID: ' + id);
+                        chart.resize();
+                        chart.update();
+                    }
+                }
+            }
+
+            // Attach click handlers to kpi-rows
+            document.querySelectorAll('.kpi-row').forEach(row => {
+                row.addEventListener('click', () => {
+                    const chartId = row.getAttribute('data-chart-id');
+                    toggleChart(chartId);
+                });
+            });
+
+            const comparisonData = {
+                {% for test in comparison_data %}
+                '{{ test.filename1|regex_replace('[^a-zA-Z0-9_]', '_') }}-{{ test.filename2|regex_replace('[^a-zA-Z0-9_]', '_') }}': {
+                    {% for kpi, data in test.kpi_data.items() %}
+                    '{{ kpi|regex_replace('[^a-zA-Z0-9_]', '_') }}': {
+                        values1: [{% for v in data.values1 %}{% if v != 'NA' %}{{ v }}{% else %}null{% endif %}{% if not loop.last %},{% endif %}{% endfor %}],
+                        values2: [{% for v in data.values2 %}{% if v != 'NA' %}{{ v }}{% else %}null{% endif %}{% if not loop.last %},{% endif %}{% endfor %}],
+                        avg1: {{ data.avg1 }},
+                        avg2: {{ data.avg2 }}
+                    }{% if not loop.last %},{% endif %}
+                    {% endfor %}
+                }{% if not loop.last %},{% endif %}
+                {% endfor %}
+            };
+
+            console.log('Comparison Data:', comparisonData);
+
+            const charts = {};
+            const kpiOrder = ['VUs', 'Flits', 'CPU_util%', 'StrormletCPU', 'r74_CPU_flytes', 'RequestDurationK6', 'r83_TAT', 'r4_RequestEndTime', 'r5_TAT', 'r6_TransferTime', 'ApplyMetadata', 'PageLoadTimeK6', 'f6_f_line_TAT', 'r82_total_stage_time', 'r82_EW_total_time', 'MaxVUs', 'DroppedIterations', 'f5_f_line_DNS_lookup'];
+
+            console.log('Starting chart initialization');
+
+            // Initialize charts using plain JavaScript
+            Object.keys(comparisonData).forEach(testKey => {
+                console.log('Processing test: ' + testKey);
+                kpiOrder.forEach(kpi => {
+                    const kpiKey = kpi.replace(/[^a-zA-Z0-9_]/g, '_');
+                    if (comparisonData[testKey][kpiKey]) {
+                        const chartId = testKey + '-' + kpiKey;
+                        const canvas = document.getElementById('chart-' + chartId);
+                        if (canvas) {
+                            const ctx = canvas.getContext('2d');
+                            const data = comparisonData[testKey][kpiKey];
+
+                            console.log('Initializing chart for ID: ' + chartId, {
+                                values1: data.values1,
+                                values2: data.values2,
+                                avg1: data.avg1,
+                                avg2: data.avg2,
+                                labels: Array(Math.max(data.values1.length, data.values2.length)).fill('').map((_, i) => `Iter ${i + 1}`)
+                            });
+
+                            charts[chartId] = new Chart(ctx, {
+                                type: 'bar',
+                                data: {
+                                    labels: Array(Math.max(data.values1.length, data.values2.length)).fill('').map((_, i) => `Iter ${i + 1}`),
+                                    datasets: [
+                                        {
+                                            label: '{{ file1|replace("JSON_", "")|replace(".json", "") }}',
+                                            data: data.values1,
+                                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                                            borderColor: 'rgba(54, 162, 235, 1)',
+                                            borderWidth: 1
+                                        },
+                                        {
+                                            label: '{{ file2|replace("JSON_", "")|replace(".json", "") }}',
+                                            data: data.values2,
+                                            backgroundColor: 'rgba(255, 159, 64, 0.5)',
+                                            borderColor: 'rgba(255, 159, 64, 1)',
+                                            borderWidth: 1
+                                        },
+                                        {
+                                            label: '',
+                                            data: Array(data.values1.length).fill(data.avg1),
+                                            type: 'line',
+                                            borderColor: 'rgba(54, 162, 235, 1)',
+                                            borderWidth: 2,
+                                            pointRadius: 0
+                                        },
+                                        {
+                                            label: '',
+                                            data: Array(data.values2.length).fill(data.avg2),
+                                            type: 'line',
+                                            borderColor: 'rgba(255, 159, 64, 1)',
+                                            borderWidth: 2,
+                                            pointRadius: 0
+                                        }
+                                    ]
+                                },
+                                options: {
+                                    scales: {
+                                        y: {
+                                            beginAtZero: true,
+                                            ticks: { font: { size: 10 } } // Smaller font
+                                        },
+                                        x: {
+                                            display: true,
+                                            ticks: { font: { size: 10 } } // Smaller font
+                                        }
+                                    },
+                                    plugins: {
+                                        legend: {
+                                            labels: {
+                                                font: { size: 10 } // Smaller font
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                        } else {
+                            console.error('Canvas not found for chart ID: ' + chartId);
+                        }
+                    }
+                });
+            });
+
+            console.log('Chart initialization complete');
+        });
+    </script>
+</body>
+</html>

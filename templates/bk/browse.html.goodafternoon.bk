@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>File Browser</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <a href="/" class="home-button">Home</a>
+    <div class="content-section">
+        <h1>Directory: /{{ current_path }}</h1>
+        <form id="compare-form" action="/compare" method="GET">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Select</th>
+                        <th>Name</th>
+                        <th>Last Modified</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if current_path %}
+                    <tr>
+                        <td></td>
+                        <td>
+                            <i class="fas fa-folder"></i>
+                            <a href="/{{ parent_path }}">.. (Parent Directory)</a>
+                        </td>
+                        <td></td>
+                    </tr>
+                    {% endif %}
+                    {% for dir in dirs %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" name="dir" value="{{ current_path + '/' + dir.name if current_path else dir.name }}">
+                        </td>
+                        <td>
+                            <i class="fas fa-folder"></i>
+                            <a href="/{{ dir.path }}">{{ dir.name }}</a> (dir)
+                        </td>
+                        <td>{{ dir.mod_time }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% for file in files %}
+                    <tr>
+                        <td>
+                            {% if file.name.lower().startswith('json') %}
+                            <input type="checkbox" name="file" 
+                                   value="{{ file.rel_path }}"
+                                   {% if file.selected %}checked{% endif %}
+                                   onchange="updateSelection('{{ file.rel_path }}', this.checked)">
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if file.name.lower().startswith('https') or file.name.lower().startswith('result') or file.name.endswith('.txt') or file.name.endswith('.log') or file.name.endswith('.res') %}
+                            <i class="fas fa-file-alt"></i>
+                            {% elif file.name.endswith('.png') %}
+                            <i class="fas fa-file-image"></i>
+                            {% elif file.name.lower().startswith('json') %}
+                            <i class="fas fa-file-code"></i>
+                            {% endif %}
+                            <a href="/{{ file.path }}">{{ file.name }}</a>
+                        </td>
+                        <td>{{ file.mod_time }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="button-group">
+                <button type="submit" class="button compare-button">Compare Selected Directory</button>
+                <button type="button" class="button detailed-button" onclick="showDetailedResults('{{ current_path }}')">Show Detailed Result Page</button>
+                <button type="button" class="button compare-two-button" onclick="compareTwoDirectories()">Compare Two Directories</button>
+                <button type="button" class="button aggregate-button" onclick="aggregateResults('{{ current_path }}')">Aggregate Results Data</button>
+                <button type="button" class="button compare-json-button" onclick="compareTwoJsonFiles()">Compare Selected JSON Files</button>
+            </div>
+        </form>
+        <p>Selected JSON Files: {{ selected_json_files|length }} file(s) selected</p>
+        <ul>
+            {% for file in selected_json_files %}
+            <li>{{ file }} <button onclick="updateSelection('{{ file }}', false)">Deselect</button></li>
+            {% endfor %}
+        </ul>
+    </div>
+    <script>
+        document.getElementById('compare-form').onsubmit = function(e) {
+            const checkboxes = document.querySelectorAll('input[name="dir"]:checked');
+            if (checkboxes.length !== 1) {
+                e.preventDefault();
+                alert('Please select exactly 1 directory to compare.');
+                return false;
+            }
+            const dir = checkboxes[0].value;
+            this.action = `/compare?dir=${encodeURIComponent(dir)}`;
+        };
+
+        function showDetailedResults(currentPath) {
+            const url = `/detailed_results?dir=${encodeURIComponent(currentPath)}`;
+            window.location.href = url;
+        }
+
+        function compareTwoDirectories() {
+            const checkboxes = document.querySelectorAll('input[name="dir"]:checked');
+            if (checkboxes.length !== 2) {
+                alert('Please select exactly 2 directories to compare.');
+                return;
+            }
+            const dir1 = checkboxes[0].value;
+            const dir2 = checkboxes[1].value;
+            const url = `/compare_results?dir1=${encodeURIComponent(dir1)}&dir2=${encodeURIComponent(dir2)}`;
+            window.location.href = url;
+        }
+
+        function aggregateResults(currentPath) {
+            const url = `/aggregate_results?dir=${encodeURIComponent(currentPath)}`;
+            window.location.href = url;
+        }
+
+        function compareTwoJsonFiles() {
+            const selectedFiles = {{ selected_json_files|tojson|safe }};
+            if (selectedFiles.length !== 2) {
+                alert('Please select exactly 2 JSON files to compare.');
+                return;
+            }
+            const file1 = selectedFiles[0];
+            const file2 = selectedFiles[1];
+            const url = `/compare_json?file1=${encodeURIComponent(file1)}&file2=${encodeURIComponent(file2)}`;
+            window.location.href = url;
+        }
+
+        function updateSelection(filePath, isChecked) {
+            const action = isChecked ? 'select' : 'deselect';
+            fetch('/browser/{{ current_path }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `action=${action}&file=${encodeURIComponent(filePath)}`
+            }).then(response => {
+                if (response.ok) {
+                    window.location.reload();  // Refresh to update selection display
+                }
+            });
+        }
+    </script>
+</body>
+</html>

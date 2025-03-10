@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Compare Test Results - Ghost EW Performance Lab</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <a href="/" class="home-button">Home</a>
+    <div class="content-section">
+        <h1>Test Results in {{ dir }}</h1>
+        {% for test_name, iterations in tests.items() %}
+        <h2>Test: {{ test_name }}</h2>
+        <table class="compare-table">
+            <thead>
+                <tr>
+                    <th>Iteration</th>
+                    {% for kpi in kpis %}
+                    <th>{{ kpi }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ test_name ~ '.js' }}</td>
+                    {% for kpi in kpis %}
+                    <td>{{ iterations[0].metrics.get(kpi, 'N/A') if iterations else 'N/A' }}</td>
+                    {% endfor %}
+                </tr>
+                {% for iteration in iterations[1:] %}
+                <tr>
+                    <td>{{ iteration.name }}</td>
+                    {% for kpi in kpis %}
+                    <td>{{ iteration.metrics.get(kpi, 'N/A') }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endfor %}
+    </div>
+</body>
+</html>

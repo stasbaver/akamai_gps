@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ghost EW Performance Lab</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <a href="/" class="home-button">Home</a>
+    <div class="top-section">
+        <h1>Control Panel</h1>
+        <div class="button-container">
+            <a href="/browser" class="button">Test Results</a>
+            <a href="/run_tests" class="button">Run Tests</a>
+            <a href="https://docs.google.com/spreadsheets/d/1xL7InqJanc_qD8fEgG3LCtZUwcseaGx0-A_SQZ7GbS0/edit?gid=164370237#gid=164370237" class="button">Ghost Version Schedule</a>
+            <a href="https://track.akamai.com/jira/browse/EW-27343?jql=project%20in%20(EW%2C%20GREL%2C%20GHOSTIL)%20AND%20issuetype%20in%20(Bug%2C%20Epic%2C%20Task)%20AND%20status%20in%20(Open%2C%20%22In%20Progress%22)%20AND%20assignee%20in%20(sbover%2C%20smalladi)" class="button">Ghost EW Perf. Jira</a>
+        </div>
+    </div>
+    <div class="bottom-section">
+        <div class="status-indicator" id="status-indicator"></div>
+        <h2>Live Test Console</h2>
+        <div class="console" id="console-output"></div>
+    </div>
+    <script>
+        let currentContent = '';
+
+        function updateConsole() {
+            fetch('/console', { cache: 'no-store' })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    const consoleElement = document.getElementById('console-output');
+                    if (!data) {
+                        consoleElement.innerText = 'Console is empty';
+                        currentContent = '';
+                        return;
+                    }
+                    const newLines = data.split('\n').filter(line => line.trim());
+                    const currentLines = currentContent.split('\n').filter(line => line.trim());
+                    const linesToAppend = newLines.slice(currentLines.length);
+                    if (linesToAppend.length > 0) {
+                        linesToAppend.forEach(line => {
+                            consoleElement.innerText += (consoleElement.innerText ? '\n' : '') + line;
+                        });
+                        currentContent = data;
+                    }
+                    const isAtBottom = consoleElement.scrollHeight - consoleElement.scrollTop <= consoleElement.clientHeight + 5;
+                    if (isAtBottom && linesToAppend.length > 0) {
+                        consoleElement.scrollTop = consoleElement.scrollHeight;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('console-output').innerText = 'Error loading console: ' + error.message;
+                    currentContent = '';
+                });
+        }
+
+        function updateStatus() {
+            fetch('/status', { cache: 'no-store' })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    const statusElement = document.getElementById('status-indicator');
+                    const trimmedData = data.trim().toLowerCase();
+                    if (trimmedData === 'true') {
+                        statusElement.style.backgroundColor = '#28a745';  // Green
+                        statusElement.innerText = 'test is currently running';
+                    } else if (trimmedData === 'red') {
+                        statusElement.style.backgroundColor = '#dc3545';  // Red
+                        statusElement.innerText = 'no running test';
+                    } else {
+                        statusElement.style.backgroundColor = '#6c757d';  // Gray fallback
+                        statusElement.innerText = 'unknown status';
+                    }
+                })
+                .catch(error => {
+                    const statusElement = document.getElementById('status-indicator');
+                    statusElement.style.backgroundColor = '#6c757d';  // Gray
+                    statusElement.innerText = 'Error loading status: ' + error.message;
+                });
+        }
+
+        updateConsole();
+        updateStatus();
+        setInterval(updateConsole, 10000);
+        setInterval(updateStatus, 10000);
+    </script>
+</body>
+</html>

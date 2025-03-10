@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Run Regression Tests</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .content {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .form-section {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin: 5px 0;
+            font-weight: bold;
+            color: #555;
+        }
+        select, input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            box-sizing: border-box;
+        }
+        .button-container {
+            text-align: center;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 0 10px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        #kill-button {
+            background-color: #dc3545;
+        }
+        #kill-button:hover {
+            background-color: #c82333;
+        }
+        .console {
+            background-color: #000;
+            color: #00ff00;
+            padding: 15px;
+            height: 300px;
+            overflow-y: auto;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            margin-top: 20px;
+        }
+        .tips {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+        }
+        .tips h2 {
+            color: #333;
+            font-size: 18px;
+        }
+        .tips ul {
+            margin: 0;
+            padding-left: 20px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="content">
+        <h1>Run Regression Tests</h1>
+        <div class="form-section">
+            <label for="test_file">Test File:</label>
+            <select id="test_file" name="test_file">
+                {% for file in test_files %}
+                <option value="{{ file }}">{{ file }}</option>
+                {% endfor %}
+            </select>
+            <label for="cycle_name">Cycle Name:</label>
+            <input type="text" id="cycle_name" name="cycle_name" required>
+            <label for="version_parent_dir">Version Parent Directory:</label>
+            <input type="text" id="version_parent_dir" name="version_parent_dir" required>
+        </div>
+        <div class="button-container">
+            <button id="run-button" onclick="startTest()">Run Test</button>
+            <button id="kill-button" onclick="killTest()" disabled>Kill Test</button>
+        </div>
+        <div class="console" id="console-output"></div>
+        <div class="tips">
+            <h2>Tips for New Users</h2>
+            <ul>
+                <li>Select a test file from the dropdown to choose which test to run.</li>
+                <li>Enter a unique cycle name to identify this test run (e.g., "Cycle_2025_03_02").</li>
+                <li>Specify the version parent directory (e.g., "11.8.3_3043") where results will be stored.</li>
+                <li>Click "Run Test" to start; the console will show live output.</li>
+                <li>Use "Kill Test" to stop a running test if needed.</li>
+                <li>Ensure all fields are filled before running the test.</li>
+            </ul>
+        </div>
+    </div>
+   <!-- [Previous HTML unchanged until script section] -->
+<script>
+    let eventSource;
+
+    function startTest() {
+        const testFile = document.getElementById('test_file').value;
+        const cycleName = document.getElementById('cycle_name').value;
+        const versionParentDir = document.getElementById('version_parent_dir').value;
+
+        if (!testFile || !cycleName || !versionParentDir) {
+            alert('All fields are required!');
+            return;
+        }
+
+        fetch('/run_tests/start_test', {  // Ensure this matches the Blueprint route
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `test_file=${encodeURIComponent(testFile)}&cycle_name=${encodeURIComponent(cycleName)}&version_parent_dir=${encodeURIComponent(versionParentDir)}`
+        })
+        .then(response => response.text())
+        .then(data => {
+            if (data === "Test started") {
+                document.getElementById('run-button').disabled = true;
+                document.getElementById('kill-button').disabled = false;
+                startConsoleStream();
+            } else {
+                alert(data);
+            }
+        })
+        .catch(error => alert('Error starting test: ' + error.message));
+    }
+
+    function killTest() {
+        fetch('/run_tests/kill_test', {  // Ensure this matches the Blueprint route
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        })
+        .then(response => response.text())
+        .then(data => {
+            if (data === "Test killed") {
+                document.getElementById('run-button').disabled = false;
+                document.getElementById('kill-button').disabled = true;
+                if (eventSource) eventSource.close();
+            } else {
+                alert(data);
+            }
+        })
+        .catch(error => alert('Error killing test: ' + error.message));
+    }
+
+    function startConsoleStream() {
+        const consoleOutput = document.getElementById('console-output');
+        consoleOutput.innerText = '';
+        if (eventSource) eventSource.close();
+        eventSource = new EventSource('/run_tests/console_stream');  // Ensure this matches the Blueprint route
+        eventSource.onmessage = function(event) {
+            consoleOutput.innerText = event.data;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            if (event.data.includes("Test execution completed") || event.data.includes("Test terminated by user")) {
+                document.getElementById('run-button').disabled = false;
+                document.getElementById('kill-button').disabled = true;
+                eventSource.close();
+            }
+        };
+        eventSource.onerror = function() {
+            consoleOutput.innerText += '\nError in console stream';
+            eventSource.close();
+        };
+    }
+</script> 
+</body>
+</html>

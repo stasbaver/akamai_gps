@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ghost EW Performance Lab</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="top-section">
+        <h1>Control Panel</h1>
+        <div class="button-container">
+            <a href="/browser" class="button">Test Results</a>
+            <a href="https://docs.google.com/spreadsheets/d/1xL7InqJanc_qD8fEgG3LCtZUwcseaGx0-A_SQZ7GbS0/edit?gid=164370237#gid=164370237" class="button">Ghost Version Schedule</a>
+            <a href="https://track.akamai.com/jira/browse/EW-27343?jql=project%20in%20(EW%2C%20GREL%2C%20GHOSTIL)%20AND%20issuetype%20in%20(Bug%2C%20Epic%2C%20Task)%20AND%20status%20in%20(Open%2C%20%22In%20Progress%22)%20AND%20assignee%20in%20(sbover%2C%20smalladi)" class="button">Ghost EW Perf. Jira</a>
+        </div>
+    </div>
+    <div class="bottom-section">
+        <h2>Live Test Console</h2>
+        <div class="console" id="console-output"></div>
+    </div>
+    <script>
+        function updateConsole() {
+            fetch('/console', { cache: 'no-store' })  // Prevent caching
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    document.getElementById('console-output').innerText = data || 'Console is empty';
+                })
+                .catch(error => {
+                    document.getElementById('console-output').innerText = 'Error loading console: ' + error.message;
+                });
+        }
+
+        // Update immediately on load
+        updateConsole();
+        // Poll every 5 seconds
+        setInterval(updateConsole, 5000);
+    </script>
+</body>
+</html>

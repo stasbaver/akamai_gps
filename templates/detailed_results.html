@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Detailed Results - Ghost EW Performance Lab</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <a href="/" class="home-button">Home</a>
+    <div class="content-section">
+        <h1>Detailed Results in {{ dir }}</h1>
+        {% for result in result_files %}
+        <div class="result-section">
+            <h2>{{ result.filename }}</h2>
+            <div class="result-headers">
+                <p>{{ result.header1 }}</p>
+                <p>{{ result.header2 }}</p>
+            </div>
+            <table class="result-table" id="result-table-{{ loop.index }}">
+                <tbody>
+                {% if result.content|length > 0 and result.content[0]|length is defined %}
+                <!-- Multi-column table -->
+                {% for row in result.content %}
+                <tr>
+                    {% for value in row %}
+                    <td>{{ value }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+                {% else %}
+                <!-- Single-column table -->
+                {% for value in result.content %}
+                <tr>
+                    <td>{{ value }}</td>
+                </tr>
+                {% endfor %}
+                {% endif %}
+                <!-- Placeholder row for averages -->
+                <tr id="average-row-{{ loop.index }}"></tr>
+                </tbody>
+            </table>
+        </div>
+        <!-- Add 4 empty rows of spacing -->
+        <div class="spacer"></div>
+        {% endfor %}
+        <button id="copy-detailed-btn" class="button copy-button">Copy Detailed Results</button>
+        <a href="javascript:history.back()" class="back-link">Back</a>
+    </div>
+    <script>
+        console.log('Script loaded for detailed results');
+
+        // Calculate and display averages for each table
+        {% for result in result_files %}
+        (function() {
+            const table = document.getElementById('result-table-{{ loop.index }}');
+            if (table) {
+                const tbody = table.getElementsByTagName('tbody')[0];
+                const rows = tbody.getElementsByTagName('tr');
+                console.log('Rows found in table {{ result.filename }}:', rows.length);
+                if (rows.length > 2) {
+                    const numCols = rows[0].getElementsByTagName('td').length;
+                    console.log('Columns in table {{ result.filename }}:', numCols);
+                    const sums = new Array(numCols).fill(0);
+                    const counts = new Array(numCols).fill(0);
+
+                    for (let i = 1; i < rows.length - 1; i++) {
+                        const cells = rows[i].getElementsByTagName('td');
+                        for (let j = 0; j < cells.length; j++) {
+                            let value = cells[j].textContent.trim();
+                            console.log(`Processing cell [${i},${j}] in {{ result.filename }}: '${value}'`);
+                            value = value.replace(/[^0-9.]/g, '');
+                            if (!isNaN(value) && value !== '' && value !== 'NA') {
+                                sums[j] += parseFloat(value);
+                                counts[j]++;
+                                console.log(`Added to sum[${j}] in {{ result.filename }}: ${value}, new sum: ${sums[j]}, count: ${counts[j]}`);
+                            }
+                        }
+                    }
+
+                    const avgRow = document.getElementById('average-row-{{ loop.index }}');
+                    console.log('Average row element for {{ result.filename }}:', avgRow);
+                    for (let i = 0; i < numCols; i++) {
+                        const avgCell = document.createElement('td');
+                        const avg = counts[i] > 0 ? (sums[i] / counts[i]).toFixed(2) : 'NA';
+                        avgCell.textContent = avg;
+                        avgCell.className = 'average-cell';
+                        avgRow.appendChild(avgCell);
+                        console.log(`Column ${i + 1} average in {{ result.filename }}: ${avg}, sums[${i}]: ${sums[i]}, counts[${i}]: ${counts[i]}`);
+                    }
+                } else {
+                    console.warn('Not enough data rows to calculate averages in {{ result.filename }}');
+                }
+            } else {
+                console.error('Table not found for {{ result.filename }}');
+            }
+        })();
+        {% endfor %}
+
+        // Copy all detailed results
+        const copyButton = document.getElementById('copy-detailed-btn');
+        if (copyButton) {
+            console.log('Copy detailed button found');
+            copyButton.addEventListener('click', function() {
+                console.log('Copy Detailed Results button clicked');
+                let fullText = 'Detailed Results in {{ dir }}\n\n';
+                {% for result in result_files %}
+                fullText += '{{ result.filename }}\n';
+                fullText += '{{ result.header1 }}\n';
+                fullText += '{{ result.header2 }}\n';
+                const table{{ loop.index }} = document.getElementById('result-table-{{ loop.index }}');
+                if (table{{ loop.index }}) {
+                    const rows{{ loop.index }} = table{{ loop.index }}.getElementsByTagName('tr');
+                    for (let row of rows{{ loop.index }}) {
+                        const cells = row.getElementsByTagName('td');
+                        const rowValues = Array.from(cells).map(cell => cell.textContent.trim());
+                        if (rowValues.length > 0) {
+                            fullText += rowValues.join('\t') + '\n';
+                        }
+                    }
+                }
+                fullText += '\n';  // Space between results
+                {% endfor %}
+                console.log('Full text to copy:', fullText.trim());
+                if (fullText) {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        console.log('Clipboard API available');
+                        navigator.clipboard.writeText(fullText.trim()).then(() => {
+                            console.log('Successfully copied to clipboard');
+                            alert('Detailed results copied to clipboard!');
+                        }).catch(err => {
+                            console.error('Clipboard API failed:', err);
+                            fallbackCopy(fullText.trim());
+                        });
+                    } else {
+                        console.warn('Clipboard API not available, using fallback');
+                        fallbackCopy(fullText.trim());
+                    }
+                } else {
+                    console.warn('No content to copy');
+                    alert('No content to copy!');
+                }
+            });
+        } else {
+            console.error('Copy detailed button not found');
+        }
+
+        function fallbackCopy(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                console.log('Successfully copied to clipboard (fallback)');
+                alert('Detailed results copied to clipboard!');
+            } catch (err) {
+                console.error('Fallback copy failed:', err);
+                alert('Failed to copy detailed results: ' + err);
+            }
+            document.body.removeChild(textarea);
+        }
+    </script>
+</body>
+</html>
