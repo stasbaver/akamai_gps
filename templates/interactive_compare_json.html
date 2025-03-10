@@ -4,7 +4,7 @@
     <title>Interactive JSON Comparison</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body {
+body {
             font-family: Arial, sans-serif;
             margin: 20px;
             background-color: #f5f5f5;
@@ -140,6 +140,15 @@
             white-space: nowrap;
             overflow-x: auto;
         }
+
+        /* Existing styles remain unchanged */
+        .no-data {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 20px;
+            flex-grow: 1;
+        }
     </style>
 </head>
 <body>
@@ -176,12 +185,20 @@
                         <div class="kpi-chart-wrapper" id="chart-wrapper-{{ chart_id }}" style="display: none;">
                             <div class="charts-row">
                                 <div class="chart-container">
+                                    {% if data.values1 and data.values1|length > 0 and data.values1|reject('eq', 'NA')|list|length > 0 %}
                                     <canvas id="chart-{{ chart_id }}-file1"></canvas>
                                     <div class="outliers" id="outliers-{{ chart_id }}-file1"></div>
+                                    {% else %}
+                                    <div class="no-data">No test data</div>
+                                    {% endif %}
                                 </div>
                                 <div class="chart-container">
+                                    {% if data.values2 and data.values2|length > 0 and data.values2|reject('eq', 'NA')|list|length > 0 %}
                                     <canvas id="chart-{{ chart_id }}-file2"></canvas>
                                     <div class="outliers" id="outliers-{{ chart_id }}-file2"></div>
+                                    {% else %}
+                                    <div class="no-data">No test data</div>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -234,132 +251,138 @@
             const maxLength = Math.max(data.values1.length, data.values2.length);
             const labels = Array(maxLength).fill('').map((_, i) => `Iter ${i + 1}`);
 
-            const ctxFile1 = document.getElementById('chart-' + chartId + '-file1').getContext('2d');
-            const ctxFile2 = document.getElementById('chart-' + chartId + '-file2').getContext('2d');
+            const canvas1 = document.getElementById('chart-' + chartId + '-file1');
+            const canvas2 = document.getElementById('chart-' + chartId + '-file2');
 
-            charts[chartId + '-file1'] = new Chart(ctxFile1, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: trimmedFile1,
-                            data: data.values1,
-                            backgroundColor: data.values1.map((val, i) => val === null ? 'rgba(54, 162, 235, 0.1)' : (data.included1[i] ? 'rgba(54, 162, 235, 0.5)' : 'rgba(54, 162, 235, 0.1)')),
-                            borderColor: 'rgba(54, 162, 235, 1)',
-                            borderWidth: 1
-                        },
-                        {
-                            label: 'Full Avg',
-                            data: Array(maxLength).fill(0),
-                            type: 'line',
-                            borderColor: 'rgba(54, 162, 235, 1)',
-                            borderWidth: 2,
-                            pointRadius: 0,
-                            fill: false
-                        },
-                        {
-                            label: 'Clean Avg',
-                            data: Array(maxLength).fill(0),
-                            type: 'line',
-                            borderColor: 'rgba(54, 162, 235, 0.7)',
-                            borderWidth: 2,
-                            borderDash: [5, 5],
-                            pointRadius: 0,
-                            fill: false
-                        }
-                    ]
-                },
-                options: {
-                    scales: {
-                        y: { beginAtZero: true },
-                        x: { title: { display: true, text: 'Iterations' } }
+            if (canvas1) {
+                const ctxFile1 = canvas1.getContext('2d');
+                charts[chartId + '-file1'] = new Chart(ctxFile1, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: trimmedFile1,
+                                data: data.values1,
+                                backgroundColor: data.values1.map((val, i) => val === null ? 'rgba(54, 162, 235, 0.1)' : (data.included1[i] ? 'rgba(54, 162, 235, 0.5)' : 'rgba(54, 162, 235, 0.1)')),
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'Full Avg',
+                                data: Array(maxLength).fill(0),
+                                type: 'line',
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                borderWidth: 2,
+                                pointRadius: 0,
+                                fill: false
+                            },
+                            {
+                                label: 'Clean Avg',
+                                data: Array(maxLength).fill(0),
+                                type: 'line',
+                                borderColor: 'rgba(54, 162, 235, 0.7)',
+                                borderWidth: 2,
+                                borderDash: [5, 5],
+                                pointRadius: 0,
+                                fill: false
+                            }
+                        ]
                     },
-                    plugins: {
-                        legend: { position: 'bottom' },
-                        tooltip: { enabled: true }
-                    },
-                    onClick: (event, elements) => {
-                        if (elements.length > 0 && elements[0].datasetIndex === 0) {
-                            const index = elements[0].index;
-                            if (data.values1[index] !== null) {
-                                data.included1[index] = !data.included1[index];
-                                updateChart(chartId, '-file1');
-                                updateStats(chartId);
-                                updateKpiCount(testKey);
+                    options: {
+                        scales: {
+                            y: { beginAtZero: true },
+                            x: { title: { display: true, text: 'Iterations' } }
+                        },
+                        plugins: {
+                            legend: { position: 'bottom' },
+                            tooltip: { enabled: true }
+                        },
+                        onClick: (event, elements) => {
+                            if (elements.length > 0 && elements[0].datasetIndex === 0) {
+                                const index = elements[0].index;
+                                if (data.values1[index] !== null) {
+                                    data.included1[index] = !data.included1[index];
+                                    updateChart(chartId, '-file1');
+                                    updateStats(chartId);
+                                    updateKpiCount(testKey);
+                                }
                             }
                         }
                     }
-                }
-            });
+                });
+                updateChart(chartId, '-file1');
+            }
 
-            charts[chartId + '-file2'] = new Chart(ctxFile2, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: trimmedFile2,
-                            data: data.values2,
-                            backgroundColor: data.values2.map((val, i) => val === null ? 'rgba(255, 159, 64, 0.1)' : (data.included2[i] ? 'rgba(255, 159, 64, 0.5)' : 'rgba(255, 159, 64, 0.1)')),
-                            borderColor: 'rgba(255, 159, 64, 1)',
-                            borderWidth: 1
-                        },
-                        {
-                            label: 'Full Avg',
-                            data: Array(maxLength).fill(0),
-                            type: 'line',
-                            borderColor: 'rgba(255, 159, 64, 1)',
-                            borderWidth: 2,
-                            pointRadius: 0,
-                            fill: false
-                        },
-                        {
-                            label: 'Clean Avg',
-                            data: Array(maxLength).fill(0),
-                            type: 'line',
-                            borderColor: 'rgba(255, 159, 64, 0.7)',
-                            borderWidth: 2,
-                            borderDash: [5, 5],
-                            pointRadius: 0,
-                            fill: false
-                        }
-                    ]
-                },
-                options: {
-                    scales: {
-                        y: { beginAtZero: true },
-                        x: { title: { display: true, text: 'Iterations' } }
+            if (canvas2) {
+                const ctxFile2 = canvas2.getContext('2d');
+                charts[chartId + '-file2'] = new Chart(ctxFile2, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: trimmedFile2,
+                                data: data.values2,
+                                backgroundColor: data.values2.map((val, i) => val === null ? 'rgba(255, 159, 64, 0.1)' : (data.included2[i] ? 'rgba(255, 159, 64, 0.5)' : 'rgba(255, 159, 64, 0.1)')),
+                                borderColor: 'rgba(255, 159, 64, 1)',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'Full Avg',
+                                data: Array(maxLength).fill(0),
+                                type: 'line',
+                                borderColor: 'rgba(255, 159, 64, 1)',
+                                borderWidth: 2,
+                                pointRadius: 0,
+                                fill: false
+                            },
+                            {
+                                label: 'Clean Avg',
+                                data: Array(maxLength).fill(0),
+                                type: 'line',
+                                borderColor: 'rgba(255, 159, 64, 0.7)',
+                                borderWidth: 2,
+                                borderDash: [5, 5],
+                                pointRadius: 0,
+                                fill: false
+                            }
+                        ]
                     },
-                    plugins: {
-                        legend: { position: 'bottom' },
-                        tooltip: { enabled: true }
-                    },
-                    onClick: (event, elements) => {
-                        if (elements.length > 0 && elements[0].datasetIndex === 0) {
-                            const index = elements[0].index;
-                            if (data.values2[index] !== null) {
-                                data.included2[index] = !data.included2[index];
-                                updateChart(chartId, '-file2');
-                                updateStats(chartId);
-                                updateKpiCount(testKey);
+                    options: {
+                        scales: {
+                            y: { beginAtZero: true },
+                            x: { title: { display: true, text: 'Iterations' } }
+                        },
+                        plugins: {
+                            legend: { position: 'bottom' },
+                            tooltip: { enabled: true }
+                        },
+                        onClick: (event, elements) => {
+                            if (elements.length > 0 && elements[0].datasetIndex === 0) {
+                                const index = elements[0].index;
+                                if (data.values2[index] !== null) {
+                                    data.included2[index] = !data.included2[index];
+                                    updateChart(chartId, '-file2');
+                                    updateStats(chartId);
+                                    updateKpiCount(testKey);
+                                }
                             }
                         }
                     }
-                }
-            });
+                });
+                updateChart(chartId, '-file2');
+            }
 
-            updateChart(chartId, '-file1');
-            updateChart(chartId, '-file2');
             updateOutliers(chartId);
         }
 
         function updateChart(chartId, suffix) {
+            const chart = charts[chartId + suffix];
+            if (!chart) return;  // Skip if no chart (e.g., "No test data")
             const testKey = chartId.split('-')[0] + '-' + chartId.split('-')[1];
             const kpiKey = chartId.split('-')[2];
             const data = comparisonData[testKey][kpiKey];
-            
-            const chart = charts[chartId + suffix];
             const values = suffix === '-file1' ? data.values1 : data.values2;
             const included = suffix === '-file1' ? data.included1 : data.included2;
 
@@ -451,17 +474,19 @@
             const outliersDiv1 = document.getElementById(`outliers-${chartId}-file1`);
             const outliersDiv2 = document.getElementById(`outliers-${chartId}-file2`);
 
-            const filteredValues1 = data.values1.filter((val, i) => data.included1[i] && val !== null);
-            const filteredValues2 = data.values2.filter((val, i) => data.included2[i] && val !== null);
+            if (outliersDiv1) {
+                const filteredValues1 = data.values1.filter((val, i) => data.included1[i] && val !== null);
+                const avg1 = filteredValues1.length > 0 ? filteredValues1.reduce((a, b) => a + b, 0) / filteredValues1.length : 0;
+                const outliers1 = data.values1.map((val, i) => val !== null && data.included1[i] && (val < avg1 * 0.5 || val > avg1 * 1.5) ? `iter${i + 1}: ${val.toFixed(2)}` : null).filter(v => v);
+                outliersDiv1.innerHTML = outliers1.length > 0 ? outliers1.join(', ') : 'No outliers';
+            }
 
-            const avg1 = filteredValues1.length > 0 ? filteredValues1.reduce((a, b) => a + b, 0) / filteredValues1.length : 0;
-            const avg2 = filteredValues2.length > 0 ? filteredValues2.reduce((a, b) => a + b, 0) / filteredValues2.length : 0;
-
-            const outliers1 = data.values1.map((val, i) => val !== null && data.included1[i] && (val < avg1 * 0.5 || val > avg1 * 1.5) ? `iter${i + 1}: ${val.toFixed(2)}` : null).filter(v => v);
-            const outliers2 = data.values2.map((val, i) => val !== null && data.included2[i] && (val < avg2 * 0.5 || val > avg2 * 1.5) ? `iter${i + 1}: ${val.toFixed(2)}` : null).filter(v => v);
-
-            outliersDiv1.innerHTML = outliers1.length > 0 ? outliers1.join(', ') : 'No outliers';
-            outliersDiv2.innerHTML = outliers2.length > 0 ? outliers2.join(', ') : 'No outliers';
+            if (outliersDiv2) {
+                const filteredValues2 = data.values2.filter((val, i) => data.included2[i] && val !== null);
+                const avg2 = filteredValues2.length > 0 ? filteredValues2.reduce((a, b) => a + b, 0) / filteredValues2.length : 0;
+                const outliers2 = data.values2.map((val, i) => val !== null && data.included2[i] && (val < avg2 * 0.5 || val > avg2 * 1.5) ? `iter${i + 1}: ${val.toFixed(2)}` : null).filter(v => v);
+                outliersDiv2.innerHTML = outliers2.length > 0 ? outliers2.join(', ') : 'No outliers';
+            }
         }
 
         function exportStaticPage() {
@@ -476,23 +501,22 @@
             const chartWrappers = staticDoc.querySelectorAll('.kpi-chart-wrapper');
             chartWrappers.forEach(wrapper => {
                 const chartId = wrapper.id.replace('chart-wrapper-', '');
-                wrapper.style.display = 'none';
+                wrapper.style.display = 'block';  // Show all charts in export
                 const canvas1 = wrapper.querySelector(`#chart-${chartId}-file1`);
                 const canvas2 = wrapper.querySelector(`#chart-${chartId}-file2`);
-                if (charts[chartId + '-file1'] && charts[chartId + '-file2']) {
+                if (canvas1 && charts[chartId + '-file1']) {
                     const img1 = staticDoc.createElement('img');
                     img1.src = charts[chartId + '-file1'].toBase64Image();
                     img1.style.width = '100%';
                     img1.style.height = '100%';
+                    canvas1.parentNode.replaceChild(img1, canvas1);
+                }
+                if (canvas2 && charts[chartId + '-file2']) {
                     const img2 = staticDoc.createElement('img');
                     img2.src = charts[chartId + '-file2'].toBase64Image();
                     img2.style.width = '100%';
                     img2.style.height = '100%';
-                    
-                    const container1 = canvas1.parentNode;
-                    const container2 = canvas2.parentNode;
-                    container1.replaceChild(img1, canvas1);
-                    container2.replaceChild(img2, canvas2);
+                    canvas2.parentNode.replaceChild(img2, canvas2);
                 }
             });
 
