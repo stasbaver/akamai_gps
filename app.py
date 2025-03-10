@@ -386,23 +386,57 @@ def interactive_compare_json():
         abort(500, f"Failed to load JSON files: {str(e)}")
     if not json_data1 or not json_data2:
         abort(400, "JSON files are empty or invalid")
+
+    # Convert JSONs to dictionaries keyed by filename
+    tests1 = {test['filename']: test for test in json_data1}
+    tests2 = {test['filename']: test for test in json_data2}
+
+    # Identify common and unique filenames
+    filenames1 = set(tests1.keys())
+    filenames2 = set(tests2.keys())
+    common_filenames = filenames1.intersection(filenames2)
+    only_in_json1 = filenames1 - filenames2
+    only_in_json2 = filenames2 - filenames1
+    all_filenames = filenames1.union(filenames2)
+
     comparison_data = []
-    for test1, test2 in zip(json_data1, json_data2):
-        kpis = sorted(set(test1['kpis']) | set(test2['kpis']))
+    for filename in sorted(all_filenames):
+        test1 = tests1.get(filename)
+        test2 = tests2.get(filename)
+        # If test exists in both, compare them; otherwise, use placeholder
+        if test1 and test2:
+            kpis = sorted(set(test1['kpis']) | set(test2['kpis']))
+            filename1 = test1['filename']
+            filename2 = test2['filename']
+        elif test1:
+            kpis = test1['kpis']
+            filename1 = test1['filename']
+            filename2 = filename1  # Use same name for display consistency
+        else:  # test2 only
+            kpis = test2['kpis']
+            filename1 = test2['filename']
+            filename2 = test2['filename']
+
         test_comparison = {
-            'filename1': test1['filename'],
-            'filename2': test2['filename'],
+            'filename1': filename1,
+            'filename2': filename2,
             'kpi_data': {}
         }
         for kpi in kpis:
-            values1 = [iter.get(kpi, 'NA') for iter in test1.get('iterations', [])]
-            values2 = [iter.get(kpi, 'NA') for iter in test2.get('iterations', [])]
+            values1 = [iter.get(kpi, 'NA') for iter in test1.get('iterations', [])] if test1 else []
+            values2 = [iter.get(kpi, 'NA') for iter in test2.get('iterations', [])] if test2 else []
+            # If one side is missing, fill with 'NA' to match length or leave empty
+            if not values1:
+                values1 = ['NA'] * len(values2) if values2 else []
+            if not values2:
+                values2 = ['NA'] * len(values1) if values1 else []
+
             valid1 = [v for v in values1 if v != 'NA']
             valid2 = [v for v in values2 if v != 'NA']
             avg1 = sum(valid1) / len(valid1) if valid1 else 0
             avg2 = sum(valid2) / len(valid2) if valid2 else 0
-            cleanValues1 = [v for v in valid1 if v >= avg1 * 0.3 and v <= avg1 * 1.7]
-            cleanValues2 = [v for v in valid2 if v >= avg2 * 0.3 and v <= avg2 * 1.7]
+            cleanValues1 = [v for v in valid1 if v >= avg1 * 0.3 and v <= avg1 * 1.7] if valid1 else []
+            cleanValues2 = [v for v in valid2 if v >= avg2 * 0.3 and v <= avg2 * 1.7] if valid2 else []
             cleanAvg1 = sum(cleanValues1) / len(cleanValues1) if cleanValues1 else 0
             cleanAvg2 = sum(cleanValues2) / len(cleanValues2) if cleanValues2 else 0
             diff_pct = abs(avg1 - avg2) / ((avg1 + avg2) / 2) * 100 if avg1 + avg2 != 0 else 'N/A'
@@ -418,6 +452,7 @@ def interactive_compare_json():
                 'included2': [True] * len(values2)
             }
         comparison_data.append(test_comparison)
+
     filename1 = os.path.basename(full_path1)
     filename2 = os.path.basename(full_path2)
     return render_template('interactive_compare_json.html', file1=filename1, file2=filename2, comparison_data=comparison_data)
@@ -519,11 +554,11 @@ def download_report():
     filename = request.args.get('filename', 'report.html')
     if not os.path.exists(REPORT_FILE):
         abort(404, "No report file found.")
-    
+
     # Read the report content
     with open(REPORT_FILE, 'r', encoding='utf-8') as f:
         report_content = f.read()
-    
+
     # Create static HTML
     static_html = f"""
 <!DOCTYPE html>
